@@ -1,0 +1,68 @@
+version: '3'
+services:
+  cardano_zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.2
+    container_name: ${PREFIX}cardano_zookeeper
+    hostname: cardano.zookeeper
+    restart: always
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    user: root
+    volumes:
+      - ./volumes/zookeeper_data:/var/lib/zookeeper/data
+      - ./volumes/zookeeper_log:/var/lib/zookeeper/log
+    networks:
+      - cardano-infrastructure-net
+
+  cardano_kafka:
+    image: confluentinc/cp-kafka:7.3.2
+    container_name: ${PREFIX}cardano_kafka
+    hostname: cardano.kafka
+    restart: always
+    ports:
+      # To learn about configuring Kafka for access across networks see
+      # https://www.confluent.io/blog/kafka-client-cannot-connect-to-broker-on-aws-on-docker-etc/
+      - "${KAFKA_EXTERNAL_PORT}:${KAFKA_EXTERNAL_PORT}"
+    depends_on:
+      - cardano_zookeeper
+    user: root
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'cardano_zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_INTERNAL:PLAINTEXT,LISTENER_EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: LISTENER_EXTERNAL://0.0.0.0:${KAFKA_EXTERNAL_PORT},LISTENER_INTERNAL://cardano_kafka:29092
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_EXTERNAL://${KAFKA_EXTERNAL_HOST}:${KAFKA_EXTERNAL_PORT},LISTENER_INTERNAL://cardano_kafka:29092,
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_MESSAGE_MAX_BYTES: 199999999
+      KAFKA_SOCKET_REQUEST_MAX_BYTES: 199999999
+    volumes:
+      - ./volumes/kafka_data:/var/lib/kafka/data
+    networks:
+      - cardano-infrastructure-net
+
+  cardano_kafka_ui:
+    container_name: ${PREFIX}cardano_kafka_ui
+    hostname: cardano.kafka.ui
+    image: provectuslabs/kafka-ui:latest
+    restart: always
+    ports:
+      - ${KAFKA_UI_PORT}:8080
+    depends_on:
+      - cardano_kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: ${KAFKA_EXTERNAL_HOST}:${KAFKA_EXTERNAL_PORT}
+      AUTH_TYPE: "LOGIN_FORM"
+      SPRING_SECURITY_USER_NAME: ${KAFKA_UI_USER:-admin}
+      SPRING_SECURITY_USER_PASSWORD: ${KAFKA_UI_PASSWORD:-pass}
+      DYNAMIC_CONFIG_ENABLED: 'true'
+    networks:
+      - cardano-infrastructure-net
+
+
+networks:
+  cardano-infrastructure-net:

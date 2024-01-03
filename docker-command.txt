@@ -1,0 +1,13 @@
+kafka-consumer-groups --bootstrap-server localhost:8081 --all-groups --describe
+
+
+kafka-console-consumer --bootstrap-server localhost:8081 --topic userTopic --partition 0 --reset-offsets 5 --max-messages 10
+
+// tang offset
+kafka-consumer-groups --bootstrap-server localhost:8081 --all-groups --reset-offsets --shift-by 10
+--all-topics --execute
+
+
+// giam offset
+kafka-consumer-groups --bootstrap-server localhost:8081 --all-groups --reset-offsets --shift-by -10
+--all-topics --execute
